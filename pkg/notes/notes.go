@@ -3,6 +3,8 @@ package notes
 import (
 	"database/sql"
 	"strings"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 const PRIVATE_ACCESS = 0
@@ -23,11 +25,36 @@ type TitleRecord struct {
 	Title string
 }
 
-func CreateNote(db *sql.DB, note *NoteRecord) error {
+func CreateAuthor(db *sql.DB, authorName string, password string) (int, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 0)
+	if err != nil {
+		return 0, err
+	}
+	query := "INSERT INTO users(userName, secret) VALUES(?, ?)"
+	result, err := db.Exec(query, authorName, string(hashedPassword))
+	if err != nil {
+		return 0, err
+	}
+	lastRow, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	authorId := int(lastRow)
+
+	query = "INSERT INTO sharing (user, sharesWith) VALUES (?, ?)"
+	_, err = db.Exec(query, authorId, authorId)
+	return authorId, err
+}
+
+func CreateNote(db *sql.DB, note *NoteRecord) (int, error) {
 	query := "INSERT INTO notes(author, content, created, privacy, renderHint) " +
 		"VALUES(?, ?, ?, ?, ?)"
-	_, err := db.Exec(query, note.Author, note.Content, note.Created, note.Privacy, note.RenderHint)
-	return err
+	result, err := db.Exec(query, note.Author, note.Content, note.Created, note.Privacy, note.RenderHint)
+	if err != nil {
+		return 0, err
+	}
+	lastRow, err := result.LastInsertId()
+	return int(lastRow), err
 }
 
 func CreateNoteDb(dbFileName string) (*sql.DB, error) {
@@ -38,7 +65,7 @@ func CreateNoteDb(dbFileName string) (*sql.DB, error) {
 
 	queries := []string{
 		"CREATE TABLE IF NOT EXISTS notes (author INT, content TEXT, created INT, privacy INT, renderHint INT)",
-		"CREATE TABLE IF NOT EXISTS users (userName TEXT)",
+		"CREATE TABLE IF NOT EXISTS users (userName TEXT, secret TEXT)",
 		"CREATE TABLE IF NOT EXISTS sharing (user INT, sharesWith INT, UNIQUE(user, sharesWith))",
 		"CREATE INDEX IF NOT EXISTS idx_shares_with ON sharing (sharesWith)",
 		"CREATE INDEX IF NOT EXISTS idx_sharing_users ON sharing (user)",
@@ -68,7 +95,6 @@ func GetNote(db *sql.DB, userId int, noteId int) (*NoteRecord, error) {
 	if !rows.Next() {
 		return nil, nil
 	}
-
 	if err = rows.Scan(&note.Author, &note.Content, &note.Created, &note.Privacy, &note.RenderHint); err != nil {
 		return nil, err
 	}
@@ -97,11 +123,6 @@ func GetTitles(db *sql.DB, userId int, noteIds []int) ([]TitleRecord, error) {
 		titles = append(titles, titleRecord)
 	}
 	return titles, nil
-}
-
-// XXX TODO
-func SetUpDb(db *sql.DB) error {
-	return nil
 }
 
 // XXX fix!

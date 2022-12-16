@@ -22,7 +22,7 @@ func Test_IndexNotesDb(t *testing.T) {
 		"hello", "ciao", "buonasera",
 	}
 	for _, content := range contents {
-		if err := notes.CreateNote(db, &notes.NoteRecord{
+		if _, err := notes.CreateNote(db, &notes.NoteRecord{
 			Author: authorId, Content: content, Created: 0, Privacy: notes.DEFAULT_ACCESS, RenderHint: 1,
 		}); err != nil {
 			t.Fatalf("Cannot insert note %s", err)

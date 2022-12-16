@@ -6,6 +6,12 @@ build_server:
 
 build: build_index build_server
 
+test_index:
+	go test ./pkg/index
+
+test_notes:
+	go test ./pkg/notes
+
 test:
 	go test -v ./...
 
