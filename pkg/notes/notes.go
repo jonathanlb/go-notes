@@ -125,6 +125,12 @@ func GetTitles(db *sql.DB, userId int, noteIds []int) ([]TitleRecord, error) {
 	return titles, nil
 }
 
+func SharesWith(db *sql.DB, sharerId int, shareeId int) error {
+	query := "INSERT INTO sharing (user, sharesWith) VALUES (?, ?)"
+	_, err := db.Exec(query, sharerId, shareeId)
+	return err
+}
+
 // XXX fix!
 func trimContentToTitle(content string) string {
 	lines := strings.Split(content, "\n")
