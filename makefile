@@ -24,6 +24,9 @@ cover:
 	rm *.coverprofile
 	go tool cover -html=coverage/cover.out -o=coverage/cover.html
 
+lint:
+	go fmt ./pkg/*
+
 clean:
 	rm -rf coverage
 	rm bin/server bin/index

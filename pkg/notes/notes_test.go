@@ -11,7 +11,6 @@ import (
 
 func Test_CreateNotesDb(t *testing.T) {
 	dbFileName := ":memory:"
-
 	db, err := createDb(dbFileName)
 	assert.Nil(t, err, "Unexpected error on DB creation")
 	defer db.Close()
@@ -30,8 +29,8 @@ func Test_CreateNotesDb(t *testing.T) {
 
 func Test_SharesNote(t *testing.T) {
 	dbFileName := ":memory:"
-	tmpDirName := t.TempDir()
-	dbFileName = tmpDirName + "/notes.sqlite3"
+	// tmpDirName := t.TempDir()
+	// dbFileName = tmpDirName + "/notes.sqlite3"
 	db, err := createDb(dbFileName)
 	assert.Nil(t, err, "Unexpected error on DB creation")
 	defer db.Close()
@@ -77,11 +76,6 @@ func Test_SharesNote(t *testing.T) {
 	retrievedNote, err = GetNote(db, authorId2, id)
 	assert.Nil(t, err, "Unexpected error on private note denied retrieval")
 	assert.Nil(t, retrievedNote, "Unexpected private note sharing")
-}
-
-func Test_trimContentToTitle(t *testing.T) {
-	trimmed := trimContentToTitle("#Title goes here\nblah, blah")
-	assert.Equal(t, "Title goes here", trimmed, "Strip out MD")
 }
 
 func createDb(dbFileName string) (*sql.DB, error) {

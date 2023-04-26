@@ -2,7 +2,6 @@ package notes
 
 import (
 	"database/sql"
-	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -11,6 +10,11 @@ const PRIVATE_ACCESS = 0
 const PROTECTED_ACCESS = 1
 const PUBLIC_ACCESS = 2
 const DEFAULT_ACCESS = 1
+
+type AuthorRecord struct {
+	Id   int
+	Name string
+}
 
 type NoteRecord struct {
 	Author     int
@@ -79,6 +83,24 @@ func CreateNoteDb(dbFileName string) (*sql.DB, error) {
 	return db, nil
 }
 
+func GetAuthor(db *sql.DB, userId int) (*AuthorRecord, error) {
+	var author AuthorRecord
+	rows, err := db.Query(
+		"SELECT rowId AS id, userName AS name FROM users WHERE rowid = ?", userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, nil
+	}
+	if err = rows.Scan(&author.Id, &author.Name); err != nil {
+		return nil, err
+	}
+	return &author, nil
+}
+
 func GetNote(db *sql.DB, userId int, noteId int) (*NoteRecord, error) {
 	var note NoteRecord
 	rows, err := db.Query(
@@ -101,38 +123,8 @@ func GetNote(db *sql.DB, userId int, noteId int) (*NoteRecord, error) {
 	return &note, nil
 }
 
-func GetTitles(db *sql.DB, userId int, noteIds []int) ([]TitleRecord, error) {
-	rows, err := db.Query(
-		"SELECT notes.rowId, note.content FROM notes, sharing "+
-			"WHERE notes.rowId in ? AND ("+
-			"notes.author = ? OR notes.privacy = ? OR "+
-			"(notes.privacy = ? AND sharing.user = notes.author AND sharing.sharesWith = ?))",
-		noteIds, userId, PUBLIC_ACCESS, PROTECTED_ACCESS, userId)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var titles []TitleRecord
-	var titleRecord TitleRecord
-	for rows.Next() {
-		if err := rows.Scan(&titleRecord.Id, &titleRecord.Title); err != nil {
-			return nil, err
-		}
-		titleRecord.Title = trimContentToTitle(titleRecord.Title)
-		titles = append(titles, titleRecord)
-	}
-	return titles, nil
-}
-
 func SharesWith(db *sql.DB, sharerId int, shareeId int) error {
 	query := "INSERT INTO sharing (user, sharesWith) VALUES (?, ?)"
 	_, err := db.Exec(query, sharerId, shareeId)
 	return err
-}
-
-// XXX fix!
-func trimContentToTitle(content string) string {
-	lines := strings.Split(content, "\n")
-	return strings.Replace(lines[0], "#", "", 1)
 }

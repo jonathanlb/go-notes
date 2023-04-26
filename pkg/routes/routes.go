@@ -8,10 +8,10 @@ import (
 	"org/bredin/go-notes/pkg/index"
 	"org/bredin/go-notes/pkg/notes"
 	"strconv"
-	"strings"
 
 	"github.com/blevesearch/bleve/v2"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	fiberLogger "github.com/gofiber/fiber/v2/middleware/logger"
 	jwtWare "github.com/gofiber/jwt/v3"
 	"github.com/golang-jwt/jwt/v4"
@@ -26,31 +26,20 @@ func InstallRoutes(app *fiber.App, db *sql.DB, idx *bleve.Index) {
 	log = zapLogger.Sugar()
 
 	app.Use(fiberLogger.New())
+	app.Use(cors.New(cors.Config{
+		AllowMethods:  "GET, POST",
+		AllowOrigins:  "*",
+		AllowHeaders:  "Accept, Authorization, Content-Type, Origin, user, pass",
+		ExposeHeaders: "Accept, Authorization, Content-Type, Origin, user, pass",
+	}))
 	app.Post("/login", installLogin(db))
 	app.Use(jwtWare.New(jwtWare.Config{
 		SigningKey: auth.GetSecret(),
 	}))
 
 	app.Get("/note/get/:noteId", installNoteGet(db))
-	app.Get("/note/titles/:noteIds", installNoteGetTitles(db))
 	app.Get("/note/search/:searchStr", installSearch(idx))
-}
-
-func extractNoteIdsParam(noteIdsParam string) ([]int, error) {
-	noteIdsStr, err := url.QueryUnescape(noteIdsParam)
-	if err != nil {
-		return nil, err
-	}
-
-	noteStrIds := strings.Split(noteIdsStr, ",")
-	noteIds := make([]int, len(noteStrIds))
-	for i, v := range noteStrIds {
-		noteIds[i], err = strconv.Atoi(v)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return noteIds, nil
+	app.Get("/user/get/:userId", installUserGet(db))
 }
 
 func getUserId(c *fiber.Ctx) int {
@@ -108,38 +97,16 @@ func installNoteGet(db *sql.DB) func(c *fiber.Ctx) error {
 	}
 }
 
-func installNoteGetTitles(db *sql.DB) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		userId := getUserId(c)
-		noteIds, err := extractNoteIdsParam(c.Params("noteIds"))
-		if err != nil {
-			c.SendString(err.Error())
-			return c.SendStatus(fiber.StatusBadRequest)
-		}
-
-		titles, err := notes.GetTitles(db, userId, noteIds)
-		if err != nil {
-			c.SendString(err.Error())
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
-
-		jsonResult, err := json.Marshal(titles)
-		if err != nil {
-			c.SendString(err.Error())
-			return c.SendStatus(fiber.StatusInternalServerError)
-		}
-		return c.SendString(string(jsonResult))
-	}
-}
-
 func installSearch(idx *bleve.Index) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		searchStr := c.Params("searchStr")
 		searchStr, err := url.QueryUnescape(searchStr)
 		if err != nil {
+			log.Errorf("Search cannot unescape query")
 			c.SendString(err.Error())
 			return c.SendStatus(fiber.StatusBadRequest)
 		}
+		log.Infof("Search %s", searchStr)
 
 		searchHits, err := index.SearchIndex(idx, searchStr)
 		if err != nil {
@@ -150,6 +117,31 @@ func installSearch(idx *bleve.Index) func(c *fiber.Ctx) error {
 		if err != nil {
 			c.SendString(err.Error())
 			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+		return c.SendString(string(jsonResult))
+	}
+}
+
+func installUserGet(db *sql.DB) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		userId, err := strconv.Atoi(c.Params("userId"))
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(fiber.StatusBadRequest)
+		}
+		author, err := notes.GetAuthor(db, userId)
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(500)
+		}
+		if author == nil {
+			return c.SendStatus(fiber.StatusNotFound)
+		}
+
+		jsonResult, err := json.Marshal(author)
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(500)
 		}
 		return c.SendString(string(jsonResult))
 	}
