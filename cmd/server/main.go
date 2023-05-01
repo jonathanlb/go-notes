@@ -1,10 +1,10 @@
 package main
 
 import (
-	"database/sql"
 	"flag"
 	"log"
 	"org/bredin/go-notes/pkg/index"
+	"org/bredin/go-notes/pkg/notes"
 	"org/bredin/go-notes/pkg/routes"
 	"os"
 
@@ -23,10 +23,11 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
-	db, err := sql.Open("sqlite3", config.DbFileName)
+	db, err := notes.CreateNoteDb(config.DbFileName)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+	db.Close()
 
 	idx, err := index.OpenIndex(config.IndexFileName)
 	if err != nil {
@@ -34,7 +35,7 @@ func main() {
 	}
 
 	app := fiber.New()
-	routes.InstallRoutes(app, db, &idx)
+	routes.InstallRoutes(app, config.DbFileName, &idx)
 	log.Fatal(app.Listen(config.Port))
 }
 

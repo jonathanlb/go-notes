@@ -131,6 +131,10 @@ func OpenNoteDb(dbFileName string) (*sql.DB, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return db, nil
 }
 

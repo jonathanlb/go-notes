@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/url"
 	"org/bredin/go-notes/pkg/auth"
@@ -21,7 +20,7 @@ import (
 
 var log *zap.SugaredLogger
 
-func InstallRoutes(app *fiber.App, db *sql.DB, idx *bleve.Index) {
+func InstallRoutes(app *fiber.App, dbFileName string, idx *bleve.Index) {
 	zapLogger, _ := zap.NewProduction()
 	defer zapLogger.Sync()
 	log = zapLogger.Sugar()
@@ -33,15 +32,15 @@ func InstallRoutes(app *fiber.App, db *sql.DB, idx *bleve.Index) {
 		AllowHeaders:  "Accept, Authorization, Content-Type, Origin, user, pass",
 		ExposeHeaders: "Accept, Authorization, Content-Type, Origin, user, pass",
 	}))
-	app.Post("/login", installLogin(db))
+	app.Post("/login", installLogin(dbFileName))
 	app.Use(jwtWare.New(jwtWare.Config{
 		SigningKey: auth.GetSecret(),
 	}))
 
-	app.Post("/note/create", installNoteCreate(db, idx))
-	app.Get("/note/get/:noteId", installNoteGet(db))
+	app.Post("/note/create", installNoteCreate(dbFileName, idx))
+	app.Get("/note/get/:noteId", installNoteGet(dbFileName))
 	app.Get("/note/search/:searchStr", installSearch(idx))
-	app.Get("/user/get/:userId", installUserGet(db))
+	app.Get("/user/get/:userId", installUserGet(dbFileName))
 }
 
 func getUserId(c *fiber.Ctx) int {
@@ -51,11 +50,18 @@ func getUserId(c *fiber.Ctx) int {
 	return int(userId)
 }
 
-func installLogin(db *sql.DB) func(c *fiber.Ctx) error {
+func installLogin(dbFileName string) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		username := c.FormValue("user")
 		password := c.FormValue("pass")
 		log.Infof("Login %s", username)
+
+		db, err := notes.OpenNoteDb(dbFileName)
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+		defer db.Close()
 
 		userId, err := auth.GetUserId(db, username, password)
 		if err != nil {
@@ -72,7 +78,7 @@ func installLogin(db *sql.DB) func(c *fiber.Ctx) error {
 	}
 }
 
-func installNoteCreate(db *sql.DB, idx *bleve.Index) func(c *fiber.Ctx) error {
+func installNoteCreate(dbFileName string, idx *bleve.Index) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		userId := getUserId(c)
 		content, err := url.QueryUnescape(
@@ -89,6 +95,14 @@ func installNoteCreate(db *sql.DB, idx *bleve.Index) func(c *fiber.Ctx) error {
 			Privacy:    notes.DEFAULT_ACCESS,
 			RenderHint: 1,
 		}
+
+		db, err := notes.OpenNoteDb(dbFileName)
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+		defer db.Close()
+
 		id, err := notes.CreateNote(db, &note)
 		if err != nil {
 			msg := err.Error()
@@ -106,7 +120,7 @@ func installNoteCreate(db *sql.DB, idx *bleve.Index) func(c *fiber.Ctx) error {
 	}
 }
 
-func installNoteGet(db *sql.DB) func(c *fiber.Ctx) error {
+func installNoteGet(dbFileName string) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		userId := getUserId(c)
 		noteId, err := strconv.Atoi(c.Params("noteId"))
@@ -114,6 +128,13 @@ func installNoteGet(db *sql.DB) func(c *fiber.Ctx) error {
 			c.SendString(err.Error())
 			return c.SendStatus(fiber.StatusBadRequest)
 		}
+
+		db, err := notes.OpenNoteDb(dbFileName)
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+		defer db.Close()
 
 		note, err := notes.GetNote(db, userId, noteId)
 		if err != nil {
@@ -158,13 +179,21 @@ func installSearch(idx *bleve.Index) func(c *fiber.Ctx) error {
 	}
 }
 
-func installUserGet(db *sql.DB) func(c *fiber.Ctx) error {
+func installUserGet(dbFileName string) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		userId, err := strconv.Atoi(c.Params("userId"))
 		if err != nil {
 			c.SendString(err.Error())
 			return c.SendStatus(fiber.StatusBadRequest)
 		}
+
+		db, err := notes.OpenNoteDb(dbFileName)
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+		defer db.Close()
+
 		author, err := notes.GetAuthor(db, userId)
 		if err != nil {
 			c.SendString(err.Error())
