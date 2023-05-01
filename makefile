@@ -4,7 +4,7 @@ build_index:
 	go build -o bin/index cmd/index/main.go
 
 build_server:
-	go build -o bin/server cmd/server/main.go
+	CGO_CFLAGS="-DSQLITE_ENABLE_RTREE -DSQLITE_THREADSAFE=1" go build -o bin/server cmd/server/main.go
 
 test:
 	go test -v ./...

@@ -16,7 +16,7 @@ func Test_CreateNotesDb(t *testing.T) {
 	defer db.Close()
 
 	note := NoteRecord{
-		1, "# My first note", int(time.Second), DEFAULT_ACCESS, 0,
+		1, "# My first note", int(time.Now().Unix()), DEFAULT_ACCESS, 0,
 	}
 	id, err := CreateNote(db, &note)
 	assert.Nil(t, err, "Unexpected error on note insertion")
@@ -36,7 +36,7 @@ func Test_SharesNote(t *testing.T) {
 	defer db.Close()
 
 	note := NoteRecord{
-		1, "# My first note", int(time.Second), DEFAULT_ACCESS, 0,
+		1, "# My first note", int(time.Now().Unix()), DEFAULT_ACCESS, 0,
 	}
 	id, err := CreateNote(db, &note)
 	assert.Nil(t, err, "Unexpected error on note insertion")
@@ -53,7 +53,7 @@ func Test_SharesNote(t *testing.T) {
 
 	// Ensure that sharing is not the default.
 	note = NoteRecord{
-		authorId2, "#Some note", int(time.Second), DEFAULT_ACCESS, 0,
+		authorId2, "#Some note", int(time.Now().Unix()), DEFAULT_ACCESS, 0,
 	}
 	id, err = CreateNote(db, &note)
 	assert.Nil(t, err, "Unexpected error on note insertion")
@@ -63,7 +63,7 @@ func Test_SharesNote(t *testing.T) {
 
 	// Ensure only author can read private notes.
 	note = NoteRecord{
-		1, "#Private note", int(time.Second), PRIVATE_ACCESS, 0,
+		1, "#Private note", int(time.Now().Unix()), PRIVATE_ACCESS, 0,
 	}
 	id, err = CreateNote(db, &note)
 	assert.Nil(t, err, "Unexpected error on private note insertion")

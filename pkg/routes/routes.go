@@ -8,6 +8,7 @@ import (
 	"org/bredin/go-notes/pkg/index"
 	"org/bredin/go-notes/pkg/notes"
 	"strconv"
+	"time"
 
 	"github.com/blevesearch/bleve/v2"
 	"github.com/gofiber/fiber/v2"
@@ -37,6 +38,7 @@ func InstallRoutes(app *fiber.App, db *sql.DB, idx *bleve.Index) {
 		SigningKey: auth.GetSecret(),
 	}))
 
+	app.Get("/note/create/:content", installNoteCreate(db, idx))
 	app.Get("/note/get/:noteId", installNoteGet(db))
 	app.Get("/note/search/:searchStr", installSearch(idx))
 	app.Get("/user/get/:userId", installUserGet(db))
@@ -67,6 +69,39 @@ func installLogin(db *sql.DB) func(c *fiber.Ctx) error {
 			return c.SendStatus(fiber.StatusInternalServerError)
 		}
 		return c.JSON(fiber.Map{"token": token})
+	}
+}
+
+func installNoteCreate(db *sql.DB, idx *bleve.Index) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		userId := getUserId(c)
+		content, err := url.QueryUnescape(c.Params("content"))
+		if err != nil {
+			log.Errorf("Create cannot unescape query")
+			c.SendString(err.Error())
+			return c.SendStatus(fiber.StatusBadRequest)
+		}
+		note := notes.NoteRecord{
+			Author:     userId,
+			Content:    content,
+			Created:    int(time.Now().Unix()),
+			Privacy:    notes.DEFAULT_ACCESS,
+			RenderHint: 1,
+		}
+		id, err := notes.CreateNote(db, &note)
+		if err != nil {
+			msg := err.Error()
+			log.Errorf("Save: %s", msg)
+			c.SendString(msg)
+			return c.SendStatus(500)
+		}
+		res := c.SendString(strconv.Itoa(id))
+		// TODO: do in background
+		err = (*idx).Index(strconv.Itoa(id), note)
+		if err != nil {
+			log.Errorf("Cannot update index: %s", err.Error())
+		}
+		return res
 	}
 }
 

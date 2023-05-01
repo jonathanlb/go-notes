@@ -62,10 +62,11 @@ func CreateNote(db *sql.DB, note *NoteRecord) (int, error) {
 }
 
 func CreateNoteDb(dbFileName string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", dbFileName)
+	db, err := sql.Open("sqlite3", dbFileName+"?cache=shared")
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(1)
 
 	queries := []string{
 		"CREATE TABLE IF NOT EXISTS notes (author INT, content TEXT, created INT, privacy INT, renderHint INT)",
