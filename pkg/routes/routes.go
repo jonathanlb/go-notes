@@ -38,7 +38,7 @@ func InstallRoutes(app *fiber.App, db *sql.DB, idx *bleve.Index) {
 		SigningKey: auth.GetSecret(),
 	}))
 
-	app.Get("/note/create/:content", installNoteCreate(db, idx))
+	app.Post("/note/create", installNoteCreate(db, idx))
 	app.Get("/note/get/:noteId", installNoteGet(db))
 	app.Get("/note/search/:searchStr", installSearch(idx))
 	app.Get("/user/get/:userId", installUserGet(db))
@@ -75,7 +75,8 @@ func installLogin(db *sql.DB) func(c *fiber.Ctx) error {
 func installNoteCreate(db *sql.DB, idx *bleve.Index) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		userId := getUserId(c)
-		content, err := url.QueryUnescape(c.Params("content"))
+		content, err := url.QueryUnescape(
+			c.FormValue("content"))
 		if err != nil {
 			log.Errorf("Create cannot unescape query")
 			c.SendString(err.Error())

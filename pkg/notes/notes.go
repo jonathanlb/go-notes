@@ -62,7 +62,7 @@ func CreateNote(db *sql.DB, note *NoteRecord) (int, error) {
 }
 
 func CreateNoteDb(dbFileName string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", dbFileName+"?cache=shared")
+	db, err := OpenNoteDb(dbFileName)
 	if err != nil {
 		return nil, err
 	}
@@ -81,6 +81,7 @@ func CreateNoteDb(dbFileName string) (*sql.DB, error) {
 			return nil, err
 		}
 	}
+
 	return db, nil
 }
 
@@ -122,6 +123,15 @@ func GetNote(db *sql.DB, userId int, noteId int) (*NoteRecord, error) {
 		return nil, err
 	}
 	return &note, nil
+}
+
+func OpenNoteDb(dbFileName string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", dbFileName+"?cache=shared")
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(1)
+	return db, nil
 }
 
 func SharesWith(db *sql.DB, sharerId int, shareeId int) error {
