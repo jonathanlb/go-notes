@@ -14,10 +14,10 @@ func Test_IndexNotesDb(t *testing.T) {
 	indexDirName := tmpDirName + "/test_index"
 
 	db, _ := notes.CreateNoteDb(dbFileName)
+	authorId, _ := notes.CreateAuthor(db, "Test Author", "")
 	defer func(db *sql.DB) {
 		db.Close()
 	}(db)
-	authorId := 1
 	contents := []string{
 		"hello", "ciao", "buonasera",
 	}

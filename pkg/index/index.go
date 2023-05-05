@@ -2,7 +2,10 @@ package index
 
 import (
 	"database/sql"
+	"log"
+	"org/bredin/go-notes/pkg/notes"
 	"strconv"
+	"time"
 
 	"github.com/blevesearch/bleve/v2"
 	_ "github.com/mattn/go-sqlite3"
@@ -41,15 +44,33 @@ func CreateIndex(dbFileName string, indexDirName string) (bleve.Index, error) {
 	type noteRecord struct {
 		Author  int
 		Content string
-		Created int
+		Created int64
 		Id      int
 	}
+	type noteIndex struct {
+		Author  string
+		Content string
+		Created time.Time
+		Id      string
+	}
 	note := noteRecord{}
+	noteI := noteIndex{}
 	for rows.Next() {
 		if err := rows.Scan(&note.Id, &note.Author, &note.Content, &note.Created); err != nil {
 			return nil, err
 		}
-		if err := index.Index(strconv.Itoa(note.Id), note); err != nil {
+
+		noteI.Id = strconv.Itoa(note.Id)
+		noteI.Content = note.Content
+		noteI.Created = time.Unix(note.Created, 0)
+
+		author, err := notes.GetAuthor(db, note.Author)
+		if err != nil {
+			log.Fatalf("Cannot find author %d: %s", note.Author, err.Error())
+		}
+		noteI.Author = author.Name
+
+		if err := index.Index(noteI.Id, noteI); err != nil {
 			return nil, err
 		}
 	}
