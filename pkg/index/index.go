@@ -5,10 +5,12 @@ import (
 	"log"
 	"org/bredin/go-notes/pkg/notes"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/blevesearch/bleve/v2"
 	_ "github.com/mattn/go-sqlite3"
+	stripmd "github.com/writeas/go-strip-markdown"
 )
 
 type SearchHit struct {
@@ -52,6 +54,7 @@ func CreateIndex(dbFileName string, indexDirName string) (bleve.Index, error) {
 		Content string
 		Created time.Time
 		Id      string
+		Title   string
 	}
 	note := noteRecord{}
 	noteI := noteIndex{}
@@ -61,8 +64,9 @@ func CreateIndex(dbFileName string, indexDirName string) (bleve.Index, error) {
 		}
 
 		noteI.Id = strconv.Itoa(note.Id)
-		noteI.Content = note.Content
+		noteI.Content = stripmd.Strip(note.Content)
 		noteI.Created = time.Unix(note.Created, 0)
+		noteI.Title = GetTitleFromContent(note.Content)
 
 		author, err := notes.GetAuthor(db, note.Author)
 		if err != nil {
@@ -79,6 +83,11 @@ func CreateIndex(dbFileName string, indexDirName string) (bleve.Index, error) {
 	}
 
 	return index, nil
+}
+
+func GetTitleFromContent(content string) string {
+	lines := strings.SplitN(content, "\n", 2)
+	return stripmd.Strip(lines[0])
 }
 
 func OpenIndex(indexFileName string) (bleve.Index, error) {
