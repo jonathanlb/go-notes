@@ -127,7 +127,7 @@ func GetNote(db *sql.DB, userId int, noteId int) (*NoteRecord, error) {
 
 func GetRecentNotes(db *sql.DB, userId int, limit int) ([]int, error) {
 	rows, err := db.Query(
-		"SELECT notes.rowid FROM notes, sharing "+
+		"SELECT DISTINCT(notes.rowid) FROM notes, sharing "+
 			"WHERE notes.author = ? OR notes.privacy = ? OR "+
 			"(notes.privacy = ? AND sharing.user = notes.author AND sharing.sharesWith = ?) "+
 			"ORDER BY notes.created DESC LIMIT ?",
