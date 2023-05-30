@@ -125,6 +125,32 @@ func GetNote(db *sql.DB, userId int, noteId int) (*NoteRecord, error) {
 	return &note, nil
 }
 
+func GetRecentNotes(db *sql.DB, userId int, limit int) ([]int, error) {
+	rows, err := db.Query(
+		"SELECT notes.rowid FROM notes, sharing "+
+			"WHERE notes.author = ? OR notes.privacy = ? OR "+
+			"(notes.privacy = ? AND sharing.user = notes.author AND sharing.sharesWith = ?) "+
+			"ORDER BY notes.created DESC LIMIT ?",
+		userId, PUBLIC_ACCESS, PROTECTED_ACCESS, userId, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []int
+	var rowid int
+	for rows.Next() {
+		if err = rows.Scan(&rowid); err != nil {
+			return result, err
+		}
+		result = append(result, rowid)
+	}
+	if err = rows.Err(); err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
 func OpenNoteDb(dbFileName string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", dbFileName+"?cache=shared")
 	if err != nil {

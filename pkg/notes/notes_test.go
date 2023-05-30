@@ -2,6 +2,8 @@ package notes
 
 import (
 	"database/sql"
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -76,6 +78,28 @@ func Test_SharesNote(t *testing.T) {
 	retrievedNote, err = GetNote(db, authorId2, id)
 	assert.Nil(t, err, "Unexpected error on private note denied retrieval")
 	assert.Nil(t, retrievedNote, "Unexpected private note sharing")
+}
+
+func Test_GetsRecentNotes(t *testing.T) {
+	dbFileName := ":memory:"
+	db, err := createDb(dbFileName)
+	assert.Nil(t, err, "Unexpected error on DB creation")
+	defer db.Close()
+
+	userId := 1
+	for i := 1; i < 6; i++ {
+		note := NoteRecord{
+			userId, "some note", i, DEFAULT_ACCESS, 0,
+		}
+		_, _ = CreateNote(db, &note)
+	}
+
+	recent, err := GetRecentNotes(db, userId, 2)
+	assert.Nil(t, err, "Unexpected error getting recent notes")
+	assert.Equal(t, 2, len(recent))
+	expectedRecent := []int{5, 4}
+	assert.True(t, reflect.DeepEqual(expectedRecent, recent),
+		fmt.Sprintf("expected: %v, got %v", expectedRecent, recent))
 }
 
 func createDb(dbFileName string) (*sql.DB, error) {

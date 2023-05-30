@@ -87,7 +87,8 @@ func CreateIndex(dbFileName string, indexDirName string) (bleve.Index, error) {
 
 func GetTitleFromContent(content string) string {
 	lines := strings.SplitN(content, "\n", 2)
-	return stripmd.Strip(lines[0])
+	return strings.TrimSpace(
+		stripmd.Strip(lines[0]))
 }
 
 func OpenIndex(indexFileName string) (bleve.Index, error) {

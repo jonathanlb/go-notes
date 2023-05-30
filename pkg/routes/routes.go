@@ -39,6 +39,7 @@ func InstallRoutes(app *fiber.App, dbFileName string, idx *bleve.Index) {
 
 	app.Post("/note/create", installNoteCreate(dbFileName, idx))
 	app.Get("/note/get/:noteId", installNoteGet(dbFileName))
+	app.Get("/note/recent/:numNotes", installRecent(dbFileName))
 	app.Get("/note/search/:searchStr", installSearch(idx))
 	app.Get("/user/get/:userId", installUserGet(dbFileName))
 }
@@ -149,6 +150,35 @@ func installNoteGet(dbFileName string) func(c *fiber.Ctx) error {
 		if err != nil {
 			c.SendString(err.Error())
 			return c.SendStatus(500)
+		}
+		return c.SendString(string(jsonResult))
+	}
+}
+func installRecent(dbFileName string) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		userId := getUserId(c)
+		numNotes, err := strconv.Atoi(c.Params("numNotes"))
+		if err != nil || numNotes <= 0 {
+			c.SendString(err.Error())
+			return c.SendStatus(fiber.StatusBadRequest)
+		}
+
+		db, err := notes.OpenNoteDb(dbFileName)
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+		defer db.Close()
+
+		searchHits, err := notes.GetRecentNotes(db, userId, numNotes)
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+		jsonResult, err := json.Marshal(searchHits)
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(fiber.StatusInternalServerError)
 		}
 		return c.SendString(string(jsonResult))
 	}
