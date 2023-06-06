@@ -76,7 +76,7 @@ func installLogin(dbFileName string) func(c *fiber.Ctx) error {
 			c.SendString(err.Error())
 			return c.SendStatus(fiber.StatusInternalServerError)
 		}
-		return c.JSON(fiber.Map{"token": token})
+		return c.JSON(fiber.Map{"token": token, "id": userId})
 	}
 }
 
