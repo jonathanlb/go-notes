@@ -2,6 +2,7 @@ package notes
 
 import (
 	"database/sql"
+	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -117,7 +118,7 @@ func GetNote(db *sql.DB, userId int, noteId int) (*NoteRecord, error) {
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, nil
+		return nil, fmt.Errorf("no note %d accessible to user %d", noteId, userId)
 	}
 	if err = rows.Scan(&note.Author, &note.Content, &note.Created, &note.Privacy, &note.RenderHint); err != nil {
 		return nil, err
@@ -162,6 +163,23 @@ func OpenNoteDb(dbFileName string) (*sql.DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+func SetNotePrivacy(db *sql.DB, userId int, noteId int, privacy int) error {
+	if privacy < 0 || privacy > PUBLIC_ACCESS {
+		return fmt.Errorf("illegal privacy mode: %d", privacy)
+	}
+
+	query := "UPDATE notes SET privacy = ? WHERE rowid = ? AND author = ?"
+	result, err := db.Exec(query, privacy, noteId, userId)
+	if err != nil {
+		return err
+	}
+	numRows, err := result.RowsAffected()
+	if numRows <= 0 {
+		return fmt.Errorf("privacy update matches no user-note id pair: %d %d", userId, noteId)
+	}
+	return err
 }
 
 func SharesWith(db *sql.DB, sharerId int, shareeId int) error {

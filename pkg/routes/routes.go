@@ -38,6 +38,7 @@ func InstallRoutes(app *fiber.App, dbFileName string, idx *bleve.Index) {
 	}))
 
 	app.Post("/note/create", installNoteCreate(dbFileName, idx))
+	app.Get("/note/privacy/:noteId/:privacy", installUpdateNotePrivacy(dbFileName))
 	app.Get("/note/get/:noteId", installNoteGet(dbFileName))
 	app.Get("/note/recent/:numNotes", installRecent(dbFileName))
 	app.Get("/note/search/:searchStr", installSearch(idx))
@@ -206,6 +207,37 @@ func installSearch(idx *bleve.Index) func(c *fiber.Ctx) error {
 			return c.SendStatus(fiber.StatusInternalServerError)
 		}
 		return c.SendString(string(jsonResult))
+	}
+}
+
+func installUpdateNotePrivacy(dbFileName string) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		userId := getUserId(c)
+		noteId, err := strconv.Atoi(c.Params("noteId"))
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(fiber.StatusBadRequest)
+		}
+
+		privacy, err := strconv.Atoi(c.Params("privacy"))
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(fiber.StatusBadRequest)
+		}
+
+		db, err := notes.OpenNoteDb(dbFileName)
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+		defer db.Close()
+
+		err = notes.SetNotePrivacy(db, userId, noteId, privacy)
+		if err != nil {
+			c.SendString(err.Error())
+			return c.SendStatus(500)
+		}
+		return c.SendString("OK")
 	}
 }
 

@@ -60,7 +60,7 @@ func Test_SharesNote(t *testing.T) {
 	id, err = CreateNote(db, &note)
 	assert.Nil(t, err, "Unexpected error on note insertion")
 	retrievedNote, err = GetNote(db, 1, id)
-	assert.Nil(t, err, "Unexpected error on unshared note retrieval")
+	assert.NotNil(t, err, "Expected error on unshared note retrieval")
 	assert.Nil(t, retrievedNote, "Unexpected sharing of unshared note")
 
 	// Ensure only author can read private notes.
@@ -76,7 +76,7 @@ func Test_SharesNote(t *testing.T) {
 	assert.NotNil(t, retrievedNote, "Unexpected nil on private note retrieval")
 
 	retrievedNote, err = GetNote(db, authorId2, id)
-	assert.Nil(t, err, "Unexpected error on private note denied retrieval")
+	assert.NotNil(t, err, "Expected error on private note denied retrieval")
 	assert.Nil(t, retrievedNote, "Unexpected private note sharing")
 }
 
@@ -100,6 +100,66 @@ func Test_GetsRecentNotes(t *testing.T) {
 	expectedRecent := []int{5, 4}
 	assert.True(t, reflect.DeepEqual(expectedRecent, recent),
 		fmt.Sprintf("expected: %v, got %v", expectedRecent, recent))
+}
+
+func Test_ChecksPrivacyMode(t *testing.T) {
+	dbFileName := ":memory:"
+	db, err := createDb(dbFileName)
+	assert.Nil(t, err, "Unexpected error on DB creation")
+	defer db.Close()
+
+	note := NoteRecord{
+		1, "# My first note", int(time.Now().Unix()), DEFAULT_ACCESS, 0,
+	}
+	id, err := CreateNote(db, &note)
+	assert.Nil(t, err, "Unexpected error on note insertion")
+	assert.NotNil(t, id, "Unexpected nil on note creation")
+
+	err = SetNotePrivacy(db, 1, id, -1)
+	assert.NotNil(t, err, "Expected error on set privacy with illegal mode")
+	err = SetNotePrivacy(db, 1, id, 10)
+	assert.NotNil(t, err, "Expected error on set privacy with illegal mode")
+}
+
+func Test_GuardsPrivacyUpdateById(t *testing.T) {
+	dbFileName := ":memory:"
+	db, err := createDb(dbFileName)
+	assert.Nil(t, err, "Unexpected error on DB creation")
+	defer db.Close()
+
+	note := NoteRecord{
+		1, "# My first note", int(time.Now().Unix()), DEFAULT_ACCESS, 0,
+	}
+	id, err := CreateNote(db, &note)
+	assert.Nil(t, err, "Unexpected error on note insertion")
+	assert.NotNil(t, id, "Unexpected nil on note creation")
+
+	err = SetNotePrivacy(db, 2, id, PRIVATE_ACCESS)
+	assert.NotNil(t, err, "Expected error with unauthorized privacy update")
+}
+
+func Test_UpdatesPrivacy(t *testing.T) {
+	dbFileName := ":memory:"
+	db, err := createDb(dbFileName)
+	assert.Nil(t, err, "Unexpected error on DB creation")
+	defer db.Close()
+
+	note := NoteRecord{
+		1, "# My first note", int(time.Now().Unix()), DEFAULT_ACCESS, 0,
+	}
+	id, err := CreateNote(db, &note)
+	assert.Nil(t, err, "Unexpected error on note insertion")
+	assert.NotNil(t, id, "Unexpected nil on note creation")
+
+	err = SetNotePrivacy(db, 1, id, PRIVATE_ACCESS)
+	assert.Nil(t, err, "Unexpected error on set privacy")
+	authorId2, err := CreateAuthor(db, "Another Test User", "")
+	assert.Nil(t, err, "Unexpected error on author creation")
+	SharesWith(db, 1, authorId2)
+
+	retrievedNote, err := GetNote(db, authorId2, 1)
+	assert.Nil(t, retrievedNote, "Expected note-sharing failure")
+	assert.NotNil(t, err, "Expected error on private-note retrieval")
 }
 
 func createDb(dbFileName string) (*sql.DB, error) {
