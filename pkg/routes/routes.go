@@ -32,6 +32,12 @@ func InstallRoutes(app *fiber.App, dbFileName string, idx *bleve.Index) {
 		AllowHeaders:  "Accept, Authorization, Content-Type, Origin, user, pass",
 		ExposeHeaders: "Accept, Authorization, Content-Type, Origin, user, pass",
 	}))
+
+	// Static is installed before jwt checks because client
+	// MD viewer will have difficultly injecting
+	// auth info into request.
+	app.Static("/public", "./data/public")
+
 	app.Post("/login", installLogin(dbFileName))
 	app.Use(jwtWare.New(jwtWare.Config{
 		SigningKey: auth.GetSecret(),
